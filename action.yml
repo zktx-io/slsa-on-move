@@ -23,8 +23,10 @@ outputs:
   package-framework:
     description: "The name of the network where the package is deployed."
     value: ${{ steps.compile.outputs.package-framework }}
-  base64-subjects:
-    value: ${{ steps.hash.outputs.base64-subjects }}
+  subjects-name:
+    value: ${{ steps.hash.outputs.subjects-name }}
+  subjects-base64:
+    value: ${{ steps.hash.outputs.subjects-base64 }}
 
 runs:
   using: "composite"
@@ -100,15 +102,18 @@ runs:
       run: |
         set -euo pipefail
         TARGET_DIRECTORY="${{ inputs.move-directory }}/build/${{ steps.compile.outputs.package-name }}/bytecode_modules"
-        HASH_FILE="hash-modules.text"
+        HASH_FILE="hash-modules"
         find "$TARGET_DIRECTORY" -maxdepth 1 -type f -name "*.mv" -print0 | sort -z | while IFS= read -r -d '' FILE; do
           sha256sum "$FILE" | awk '{print $1}' >> "$HASH_FILE"
         done
-        echo "base64-subjects=$(sha256sum $HASH_FILE | base64 -w0)" >> "$GITHUB_OUTPUT"
+        {
+          echo "subjects-name=$HASH_FILE"
+          echo "subjects-base64=$(sha256sum $HASH_FILE | base64 -w0)"
+        } >> "$GITHUB_OUTPUT"
 
     - name: Upload subjects
       uses: actions/upload-artifact@v4
       with:
-        name: hash-modules
-        path: hash-modules.text
+        name: ${{ steps.hash.outputs.subjects-name }}
+        path: ${{ steps.hash.outputs.subjects-name }}
         if-no-files-found: error
