@@ -1,0 +1,57 @@
+name: SLSA 3+
+
+on:
+  workflow_call:
+    inputs:
+      move-compiler:
+        description:
+          'Select a CLI to compile the Move language. Examples include tools such as `aptos` and `sui`.'
+        required: true
+        type: string
+      move-directory:
+        description:
+          'The root directory of the Move project refers to the directory containing the Move.toml file.'
+        required: true
+        type: string
+    outputs:
+      package-name:
+        description: "The name of the package."
+        value: ${{ jobs.build.outputs.package-name }}
+      package-framework:
+        description: "The name of the network where the package is deployed."
+        value: ${{ jobs.build.outputs.package-framework }}
+      provenance-name:
+        description: "The artifact name of the signed provenance. The file must have the .intoto extension. Defaults to <filename>.intoto for single artifact or multiple.intoto.jsonl for multiple artifacts."
+        value: ${{ jobs.provenance.outputs.provenance-name }}
+      base64-subjects:
+        value: ${{ jobs.build.outputs.base64-subjects }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      package-name: ${{ steps.compile.outputs.package-name }}
+      package-framework: ${{ steps.compile.outputs.package-framework }}
+      base64-subjects: ${{ steps.compile.outputs.base64-subjects }}
+    permissions:
+      actions: read
+      contents: write
+      id-token: write
+    steps:
+      - name: Build Move
+        id: compile
+        uses: 'zktx-io/slsa-on-move@main'
+        with:
+          move-compiler: ${{inputs.move-compiler}}
+          move-directory: ${{ inputs.move-directory}}
+
+  provenance:
+    needs: [build]
+    permissions:
+      actions: read
+      id-token: write
+      contents: write
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
+    with:
+      base64-subjects: ${{ needs.build.outputs.base64-subjects }}
+      upload-assets: true

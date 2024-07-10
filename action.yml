@@ -1,0 +1,114 @@
+name: SLSA On Move
+description: SLSA On Move
+branding:
+  color: blue
+  icon: package
+
+runs-on: ubuntu-latest
+inputs:
+  move-compiler:
+    description:
+      'Select a CLI to compile the Move language. Examples include tools such as `aptos` and `sui`.'
+    required: true
+    type: string
+  move-directory:
+    description:
+      'The root directory of the Move project refers to the directory containing the Move.toml file.'
+    required: true
+    type: string
+outputs:
+  package-name:
+    description: "The name of the package."
+    value: ${{ steps.compile.outputs.package-name }}
+  package-framework:
+    description: "The name of the network where the package is deployed."
+    value: ${{ steps.compile.outputs.package-framework }}
+  base64-subjects:
+    value: ${{ steps.hash.outputs.base64-subjects }}
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Homebrew
+      uses: Homebrew/actions/setup-homebrew@master
+
+    - name: Install Move Compiler
+      shell: bash
+      run: |
+        if [ "${{ inputs.move-compiler }}" = "aptos" ]; then
+          echo "Installing Aptos compiler..."
+          brew install aptos
+        elif [ "${{ inputs.move-compiler }}" = "sui" ]; then
+          echo "Installing Sui compiler..."
+          brew install sui
+        else
+          echo "Unknown compiler: ${{ inputs.move-compiler }}"
+          exit 1
+        fi
+
+    - name: Compile Move
+      id: compile
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ -z "${GITHUB_WORKSPACE}" ]; then
+          echo "\$GITHUB_WORKSPACE is empty."
+          exit 1
+        fi
+        move_realpath=$(realpath -e "${{ inputs.move-directory }}")
+        echo "Directory '${{ inputs.move-directory }}' resolved to '${move_realpath}'"
+        github_workspace_realpath=$(realpath -e "${GITHUB_WORKSPACE}")
+        echo "GitHub workspace '${GITHUB_WORKSPACE}' resolved to '${github_workspace_realpath}'"
+        echo "Checking directory '${move_realpath}' is a sub-directory of '${github_workspace_realpath}'"
+        if [[ "${move_realpath}" != "${github_workspace_realpath}" ]] && [[ "${move_realpath}" != "${github_workspace_realpath}"/* ]]; then
+          echo "${{ inputs.move-directory }} not a sub-directory of ${GITHUB_WORKSPACE}"
+          exit 1
+        fi
+        # Directory was validated. Explicitly trust it.
+        directory="${{ inputs.move-directory }}"
+        cd "${directory}"
+        toml_file="Move.toml"
+        package_name=$(grep -oP '(?<=name = ").*(?=")' "${toml_file}")
+        package_framework=$(grep -oP '(?<=rev = ").*?(?=")' "${toml_file}")
+        if [ "${{ inputs.move-compiler }}" = "aptos" ]; then
+          echo "Compiling Aptos compiler..."
+          aptos move compile
+        elif [ "${{ inputs.move-compiler }}" = "sui" ]; then
+          echo "Compiling Sui compiler..."
+          sui move build
+        else
+          echo "Unknown compiler: ${{ inputs.move-compiler }}"
+          exit 1
+        fi
+        {
+          echo "package-name=${package_name}"
+          echo "package-framework=${{ inputs.move-compiler }}:${package_framework}"
+        } >>"${GITHUB_OUTPUT}"
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: project
+        path: ${{ inputs.move-directory }}
+        if-no-files-found: error
+
+    - name: Generate subject
+      id: hash
+      shell: bash
+      run: |
+        set -euo pipefail
+        TARGET_DIRECTORY="${{ inputs.move-directory }}/build/${{ steps.compile.outputs.package-name }}/bytecode_modules"
+        HASH_FILE="hash-modules.text"
+        find "$TARGET_DIRECTORY" -maxdepth 1 -type f -name "*.mv" -print0 | sort -z | while IFS= read -r -d '' FILE; do
+          sha256sum "$FILE" | awk '{print $1}' >> "$HASH_FILE"
+        done
+        echo "base64-subjects=$(sha256sum $HASH_FILE | base64 -w0)" >> "$GITHUB_OUTPUT"
+
+    - name: Upload subjects
+      uses: actions/upload-artifact@v4
+      with:
+        name: hash-modules
+        path: hash-modules.text
+        if-no-files-found: error
