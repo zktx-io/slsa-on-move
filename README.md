@@ -70,7 +70,7 @@ jobs:
     outputs:
       package-name: ${{ steps.compile.outputs.package-name }}
       package-framework: ${{ steps.compile.outputs.package-framework }}
-      base64-subjects: ${{ steps.compile.outputs.base64-subjects }}
+      subjects-base64: ${{ steps.compile.outputs.subjects-base64 }}
     permissions:
       actions: read
       contents: write
@@ -129,14 +129,14 @@ jobs:
       - name: Verify assets
         shell: bash
         env:
-          HASH: ${{ needs.build.outputs.base64-subjects }}
+          HASH: ${{ needs.build.outputs.subjects-base64 }}
         run: |
           set -euo pipefail
           echo "github.com/$GITHUB_REPOSITORY"
           slsa-verifier verify-artifact --provenance-path ${{ needs.build.outputs.provenance-name }} \
                                         --source-uri "github.com/$GITHUB_REPOSITORY" \
                                         --source-tag "$GITHUB_REF_NAME" \
-                                        hash-modules.text
+                                        ${{ needs.build.outputs.subjects-name }}
 ```
 
 Now, when you invoke this workflow, the **Move builder** will build both your artifacts and the provenance files for them.
