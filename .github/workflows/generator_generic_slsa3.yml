@@ -23,8 +23,10 @@ on:
       provenance-name:
         description: "The artifact name of the signed provenance. The file must have the .intoto extension. Defaults to <filename>.intoto for single artifact or multiple.intoto.jsonl for multiple artifacts."
         value: ${{ jobs.provenance.outputs.provenance-name }}
+      subjects-name:
+        value: ${{ jobs.build.outputs.subjects-name }}  
       base64-subjects:
-        value: ${{ jobs.build.outputs.base64-subjects }}
+        value: ${{ jobs.build.outputs.subjects-base64 }}
 
 jobs:
   build:
@@ -32,7 +34,8 @@ jobs:
     outputs:
       package-name: ${{ steps.compile.outputs.package-name }}
       package-framework: ${{ steps.compile.outputs.package-framework }}
-      base64-subjects: ${{ steps.compile.outputs.base64-subjects }}
+      subjects-name: ${{ steps.compile.outputs.subjects-name }}
+      subjects-base64: ${{ steps.compile.outputs.subjects-base64 }}
     permissions:
       actions: read
       contents: write
@@ -53,5 +56,5 @@ jobs:
       contents: write
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
     with:
-      base64-subjects: ${{ needs.build.outputs.base64-subjects }}
+      base64-subjects: ${{ needs.build.outputs.subjects-base64 }}
       upload-assets: true
