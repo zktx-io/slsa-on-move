@@ -25,8 +25,6 @@ on:
         value: ${{ jobs.provenance.outputs.provenance-name }}
       subjects-name:
         value: ${{ jobs.build.outputs.subjects-name }}  
-      base64-subjects:
-        value: ${{ jobs.build.outputs.subjects-base64 }}
 
 jobs:
   build:
