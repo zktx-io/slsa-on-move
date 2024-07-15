@@ -62,7 +62,6 @@ permissions:
   actions: read
   contents: write
   id-token: write
-  attestations: write
 
 jobs:
   build:
@@ -94,7 +93,6 @@ permissions:
   actions: read
   contents: write
   id-token: write
-  attestations: write
 
 jobs:
   build:
