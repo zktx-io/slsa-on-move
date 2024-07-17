@@ -74,7 +74,7 @@ jobs:
             -d '{
                   "name": "${{ needs.build.outputs.package-name }}",
                   "network":"${{ needs.build.outputs.package-framework }}",
-                  "provenance": "${provenance_base64}"
+                  "provenance": "'"${provenance_base64}"'"
                 }')
           PARSED_UID=$(echo $RESPONSE | jq -r '.uid')
           echo "uid=$PARSED_UID" >> $GITHUB_OUTPUT
