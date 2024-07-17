@@ -65,30 +65,16 @@ jobs:
           name: "provenance.intoto.jsonl"
           path: "."
 
-      - name: Jsonl download and parse 
-        id: sigstore
-        run: |
-          jsonl_file="provenance.intoto.jsonl"
-          first_json=$(head -n 1 "$jsonl_file")
-          payload=$(echo "$first_json" | jq -r '.payload')
-          parsed=$(echo "$payload" | base64 --decode)
-          hash=$(echo "$parsed" | jq -r '.subject[0].digest.sha256')
-          echo "hash=$hash" >> $GITHUB_OUTPUT
-
       - name: Ready to sign transaction
         id: ready-to-sign
         run: |
+          provenance_base64=$(base64 -w 0 provenance.intoto.jsonl)
           RESPONSE=$(curl --silent -X POST "https://create-jx4b2hndxq-uc.a.run.app" \
             -H "Content-Type: application/json" \
             -d '{
                   "name": "${{ needs.build.outputs.package-name }}",
                   "network":"${{ needs.build.outputs.package-framework }}",
-                  "provenance": {
-                    "summary": "https://github.com/zktx-io/move_on_github_action/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}",
-                    "commit": "https://github.com/zktx-io/move_on_github_action/tree/${{ github.sha }}",
-                    "workflow": "https://github.com/zktx-io/move_on_github_action/actions/runs/${{ github.run_id }}/workflow",
-                    "ledger": "https://search.sigstore.dev/?hash=${{ steps.sigstore.outputs.hash }}"
-                  }
+                  provenance: "'${provenance_base64}'"
                 }')
           PARSED_UID=$(echo $RESPONSE | jq -r '.uid')
           echo "uid=$PARSED_UID" >> $GITHUB_OUTPUT
