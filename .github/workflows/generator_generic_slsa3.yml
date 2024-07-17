@@ -20,11 +20,6 @@ on:
       package-framework:
         description: "The name of the network where the package is deployed."
         value: ${{ jobs.build.outputs.package-framework }}
-      provenance-name:
-        description: "The artifact name of the signed provenance. The file must have the .intoto extension. Defaults to <filename>.intoto for single artifact or multiple.intoto.jsonl for multiple artifacts."
-        value: ${{ jobs.provenance.outputs.provenance-name }}
-      subjects-name:
-        value: ${{ jobs.build.outputs.subjects-name }}  
 
 jobs:
   build:
@@ -32,8 +27,7 @@ jobs:
     outputs:
       package-name: ${{ steps.compile.outputs.package-name }}
       package-framework: ${{ steps.compile.outputs.package-framework }}
-      subjects-name: ${{ steps.compile.outputs.subjects-name }}
-      subjects-base64: ${{ steps.compile.outputs.subjects-base64 }}
+      base64-subjects: ${{ steps.compile.outputs.base64-subjects }}
     permissions:
       actions: read
       contents: write
@@ -54,7 +48,7 @@ jobs:
       contents: write
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
     with:
-      base64-subjects: ${{ needs.build.outputs.subjects-base64 }}
+      base64-subjects: ${{ needs.build.outputs.base64-subjects }}
       upload-assets: true
 
   deploy:
@@ -68,13 +62,13 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: ${{ needs.provenance.outputs.provenance-name }}
+          name: "provenance.intoto.jsonl"
           path: "."
 
       - name: Jsonl download and parse 
         id: sigstore
         run: |
-          jsonl_file="${{ needs.provenance.outputs.provenance-name }}"
+          jsonl_file="provenance.intoto.jsonl"
           first_json=$(head -n 1 "$jsonl_file")
           payload=$(echo "$first_json" | jq -r '.payload')
           parsed=$(echo "$payload" | base64 --decode)
