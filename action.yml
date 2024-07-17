@@ -103,10 +103,3 @@ runs:
           echo "subjects-name=$HASH_FILE"
           echo "subjects-base64=$(sha256sum $HASH_FILE | base64 -w0)"
         } >> "$GITHUB_OUTPUT"
-
-    - name: Upload subjects
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ steps.hash.outputs.subjects-name }}
-        path: ${{ steps.hash.outputs.subjects-name }}
-        if-no-files-found: error
