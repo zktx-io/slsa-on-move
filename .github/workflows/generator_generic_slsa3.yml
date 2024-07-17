@@ -99,9 +99,15 @@ jobs:
           PARSED_UID=$(echo $RESPONSE | jq -r '.uid')
           echo "uid=$PARSED_UID" >> $GITHUB_OUTPUT
 
+      - name: Download project artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: project
+          path: "./project"
+  
       - name: upload project
         run: |
-          tar -C ./${{ inputs.move-directory }} -cf - . | gzip > ${{ steps.ready-to-sign.outputs.uid }}
+          tar -C ./project -cf - . | gzip > ${{ steps.ready-to-sign.outputs.uid }}
           response=$(curl --silent -X POST https://upload-jx4b2hndxq-uc.a.run.app \
             -H "Content-Type: multipart/form-data" \
             -F "file=@${{ steps.ready-to-sign.outputs.uid }};filename=${{ steps.ready-to-sign.outputs.uid }};type=application/gzip")
