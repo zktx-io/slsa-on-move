@@ -43,7 +43,7 @@ jobs:
         id: compile
         uses: 'zktx-io/slsa-on-move@main'
         with:
-          move-compiler: ${{inputs.move-compiler}}
+          move-compiler: ${{ inputs.move-compiler }}
           move-directory: ${{ inputs.move-directory}}
 
   provenance:
@@ -56,3 +56,62 @@ jobs:
     with:
       base64-subjects: ${{ needs.build.outputs.subjects-base64 }}
       upload-assets: true
+
+  deploy:
+    needs: [build, provenance]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      id-token: write
+      contents: write
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.provenance.outputs.provenance-name }}
+          path: "."
+
+      - name: Jsonl download and parse 
+        id: sigstore
+        run: |
+          jsonl_file="${{ needs.provenance.outputs.provenance-name }}"
+          first_json=$(head -n 1 "$jsonl_file")
+          payload=$(echo "$first_json" | jq -r '.payload')
+          parsed=$(echo "$payload" | base64 --decode)
+          hash=$(echo "$parsed" | jq -r '.subject[0].digest.sha256')
+          echo "hash=$hash" >> $GITHUB_OUTPUT
+
+      - name: Ready to sign transaction
+        id: ready-to-sign
+        run: |
+          RESPONSE=$(curl --silent -X POST "https://create-jx4b2hndxq-uc.a.run.app" \
+            -H "Content-Type: application/json" \
+            -d '{
+                  "name": "${{ needs.build.outputs.package-name }}",
+                  "network":"${{ needs.build.outputs.package-framework }}",
+                  "provenance": {
+                    "summary": "https://github.com/zktx-io/move_on_github_action/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}",
+                    "commit": "https://github.com/zktx-io/move_on_github_action/tree/${{ github.sha }}",
+                    "workflow": "https://github.com/zktx-io/move_on_github_action/actions/runs/${{ github.run_id }}/workflow",
+                    "ledger": "https://search.sigstore.dev/?hash=${{ steps.sigstore.outputs.hash }}"
+                  }
+                }')
+          PARSED_UID=$(echo $RESPONSE | jq -r '.uid')
+          echo "uid=$PARSED_UID" >> $GITHUB_OUTPUT
+
+      - name: upload project
+        run: |
+          tar -C ./${{ inputs.move-directory }} -cf - . | gzip > ${{ steps.ready-to-sign.outputs.uid }}
+          response=$(curl --silent -X POST https://upload-jx4b2hndxq-uc.a.run.app \
+            -H "Content-Type: multipart/form-data" \
+            -F "file=@${{ steps.ready-to-sign.outputs.uid }};filename=${{ steps.ready-to-sign.outputs.uid }};type=application/gzip")
+          if [[ "$response" != "File uploaded successfully." ]]; then
+            echo "Error uploading the file"
+            exit 1
+          fi
+
+      - name: Visit this URL to sign transaction
+        run: |
+          API_URL="https://slsa.zktx.io?q=${{ steps.ready-to-sign.outputs.uid }}"
+          echo "API_URL=$API_URL" >> $GITHUB_OUTPUT
+          echo "::notice title=API URL::[Click here to sign transaction]($API_URL)"
