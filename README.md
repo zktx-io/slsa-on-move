@@ -109,32 +109,39 @@ jobs:
       id-token: write
       contents: write
     steps:
-      - name: Download provenance
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ needs.build.outputs.provenance-name }}
-          path: "."
-
-      - name: Download hash-modules
-        uses: actions/download-artifact@v4
-        with:
-          name: hash-modules
-          path: "."
-
       - name: Install the verifier
         uses: slsa-framework/slsa-verifier/actions/installer@v2.5.1
 
-      - name: Verify assets
+      - name: Download provenance
+        uses: actions/download-artifact@v4
+        with:
+          name: "provenance.intoto.jsonl"
+          path: "."
+
+      - name: Download project
+        uses: actions/download-artifact@v4
+        with:
+          name: project
+          path: project
+
+      - name: Generate hashes
+        id: hash
         shell: bash
-        env:
-          HASH: ${{ needs.build.outputs.subjects-base64 }}
+        run: |
+          set -euo pipefail
+          TARGET_DIRECTORY="project/build/${{ needs.build.outputs.package-name }}/bytecode_modules"
+          find "$TARGET_DIRECTORY" -maxdepth 1 -type f -name "*.mv" -print0 | sort -z | while IFS= read -r -d '' FILE; do
+            sha256sum "$FILE" | awk '{print $1}' >> hashes
+          done
+
+      - name: Verify assets without tag (--source-tag "$GITHUB_REF_NAME")
+        shell: bash
         run: |
           set -euo pipefail
           echo "github.com/$GITHUB_REPOSITORY"
-          slsa-verifier verify-artifact --provenance-path ${{ needs.build.outputs.provenance-name }} \
+          slsa-verifier verify-artifact --provenance-path provenance.intoto.jsonl \
                                         --source-uri "github.com/$GITHUB_REPOSITORY" \
-                                        --source-tag "$GITHUB_REF_NAME" \
-                                        ${{ needs.build.outputs.subjects-name }}
+                                        hashes
 ```
 
 Now, when you invoke this workflow, the **Move builder** will build both your artifacts and the provenance files for them.
