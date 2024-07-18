@@ -94,7 +94,7 @@ runs:
         path: ${{ inputs.move-directory }}
         if-no-files-found: error
 
-    - name: Generate subject
+    - name: Generate hashes for provenance
       id: hash
       shell: bash
       run: |
