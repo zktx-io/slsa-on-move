@@ -65,8 +65,8 @@ jobs:
           name: "provenance.intoto.jsonl"
           path: "."
 
-      - name: Ready to sign transaction
-        id: ready-to-sign
+      - name: Upload provenance data
+        id: upload-data
         run: |
           provenance_base64=$(base64 -w 0 provenance.intoto.jsonl)
           RESPONSE=$(curl --silent -X POST "https://create-jx4b2hndxq-uc.a.run.app" \
@@ -85,12 +85,12 @@ jobs:
           name: project
           path: "./project"
   
-      - name: upload project
+      - name: upload project data
         run: |
-          tar -C ./project -cf - . | gzip > ${{ steps.ready-to-sign.outputs.uid }}
+          tar -C ./project -cf - . | gzip > ${{ steps.upload-data.outputs.uid }}
           response=$(curl --silent -X POST https://upload-jx4b2hndxq-uc.a.run.app \
             -H "Content-Type: multipart/form-data" \
-            -F "file=@${{ steps.ready-to-sign.outputs.uid }};filename=${{ steps.ready-to-sign.outputs.uid }};type=application/gzip")
+            -F "file=@${{ steps.upload-data.outputs.uid }};filename=${{ steps.upload-data.outputs.uid }};type=application/gzip")
           if [[ "$response" != "File uploaded successfully." ]]; then
             echo "Error uploading the file"
             exit 1
@@ -98,6 +98,38 @@ jobs:
 
       - name: Visit this URL to sign transaction
         run: |
-          API_URL="https://slsa.zktx.io?q=${{ steps.ready-to-sign.outputs.uid }}"
+          API_URL="https://slsa.zktx.io?q=${{ steps.upload-data.outputs.uid }}"
           echo "API_URL=$API_URL" >> $GITHUB_OUTPUT
           echo "::notice title=API URL::[Click here to sign transaction]($API_URL)"
+
+      - name: Fetch signatures
+        id: fetch
+        run: |
+          MAX_RETRIES=20
+          RETRY_COUNT=0
+          SLEEP=30
+          STATUS="pending"
+          while [[ "$STATUS" != "complete" && $RETRY_COUNT -lt $MAX_RETRIES ]]; do
+            RESPONSE=$(curl --silent -X POST "https://fetch-jx4b2hndxq-uc.a.run.app" \
+              -H "Content-Type: application/json" \
+              -d '{"uid":"${{ steps.upload-data.outputs.uid }}"}')
+            if [[ "$RESPONSE" == "Document not found" ]]; then
+              echo "Waiting... (Retry count: $RETRY_COUNT / $MAX_RETRIES)"
+              sleep $SLEEP
+              RETRY_COUNT=$((RETRY_COUNT+1))
+            else
+              signedData=$(echo $RESPONSE | jq -r '.signedData' || echo "pending")
+              if [[ "$signedData" != "pending" && "$signedData" != "null" ]]; then
+                STATUS="complete"
+              else
+                echo "Waiting... (Retry count: $RETRY_COUNT / $MAX_RETRIES)"
+                sleep $SLEEP
+                RETRY_COUNT=$((RETRY_COUNT+1))
+              fi
+            fi
+          done
+          if [[ "$STATUS" != "complete" ]]; then
+            echo "Status did not become complete within the expected time."
+            exit 1
+          fi
+          echo "status=complete" >> $GITHUB_ENV
