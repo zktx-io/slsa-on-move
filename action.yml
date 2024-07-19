@@ -27,7 +27,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
-      package-name: ${{ steps.compile.outputs.package-name }}
+      package-name: ${{ steps.compile.outputs.package_name }}
       package-framework: ${{ steps.compile.outputs.package-framework }}
       base64-subjects: ${{ steps.hash.outputs.base64-subjects }}
     steps:
@@ -79,7 +79,7 @@ jobs:
               exit 1
           fi
           {
-              echo "package-name=${package_name}"
+              echo "package_name=${package_name}"
               echo "package-framework=${{ inputs.move-compiler }}:${package_framework}"
           } >> "${GITHUB_OUTPUT}"
 
@@ -95,7 +95,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TARGET_DIRECTORY="${{ inputs.move-directory }}/build/${{ steps.compile.outputs.package-name }}/bytecode_modules"
+          TARGET_DIRECTORY="${{ inputs.move-directory }}/build/${{ steps.compile.outputs.package_name }}/bytecode_modules"
           HASH_FILE="provenance"
           find "$TARGET_DIRECTORY" -maxdepth 1 -type f -name "*.mv" -print0 | sort -z | while IFS= read -r -d '' FILE; do
               sha256sum "$FILE" | awk '{print $1}' >> "$HASH_FILE"
