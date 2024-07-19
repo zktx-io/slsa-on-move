@@ -22,14 +22,14 @@ permissions:
   actions: read
   id-token: write
   contents: write
-  
+
 jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
       package-name: ${{ steps.compile.outputs.package-name }}
       package-framework: ${{ steps.compile.outputs.package-framework }}
-      base64-subjects: ${{ steps.compile.outputs.base64-subjects }}
+      base64-subjects: ${{ steps.hash.outputs.base64-subjects }}
     steps:
       - uses: actions/checkout@v3
 
@@ -55,10 +55,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ -z "${GITHUB_WORKSPACE}" ]; then
-              echo "\$GITHUB_WORKSPACE is empty."
-              exit 1
-          fi
           move_realpath=$(realpath -e "${{ inputs.move-directory }}")
           echo "Directory '${{ inputs.move-directory }}' resolved to '${move_realpath}'"
           github_workspace_realpath=$(realpath -e "${GITHUB_WORKSPACE}")
@@ -68,17 +64,15 @@ jobs:
               echo "${{ inputs.move-directory }} not a sub-directory of ${GITHUB_WORKSPACE}"
               exit 1
           fi
-          # Directory was validated. Explicitly trust it.
-          directory="${{ inputs.move-directory }}"
-          cd "${directory}"
+          cd "${move_realpath}"
           toml_file="Move.toml"
           package_name=$(grep -oP '(?<=name = ").*(?=")' "${toml_file}")
           package_framework=$(grep -oP '(?<=rev = ").*?(?=")' "${toml_file}")
           if [ "${{ inputs.move-compiler }}" = "aptos" ]; then
-              echo "Compiling Aptos compiler..."
+              echo "Compiling with Aptos compiler..."
               aptos move compile
           elif [ "${{ inputs.move-compiler }}" = "sui" ]; then
-              echo "Compiling Sui compiler..."
+              echo "Compiling with Sui compiler..."
               sui move build
           else
               echo "Unknown compiler: ${{ inputs.move-compiler }}"
@@ -87,8 +81,8 @@ jobs:
           {
               echo "package-name=${package_name}"
               echo "package-framework=${{ inputs.move-compiler }}:${package_framework}"
-          } >>"${GITHUB_OUTPUT}"
-    
+          } >> "${GITHUB_OUTPUT}"
+
       - name: Upload project artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -106,9 +100,7 @@ jobs:
           find "$TARGET_DIRECTORY" -maxdepth 1 -type f -name "*.mv" -print0 | sort -z | while IFS= read -r -d '' FILE; do
               sha256sum "$FILE" | awk '{print $1}' >> "$HASH_FILE"
           done
-          {
-              echo "base64-subjects=$(sha256sum $HASH_FILE | base64 -w0)"
-          } >> "$GITHUB_OUTPUT"
+          echo "base64-subjects=$(base64 -w 0 $HASH_FILE)" >> "$GITHUB_OUTPUT"
 
   provenance:
     needs: [build]
@@ -135,11 +127,11 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{
                   "name": "${{ needs.build.outputs.package-name }}",
-                  "network":"${{ needs.build.outputs.package-framework }}",
+                  "network": "${{ needs.build.outputs.package-framework }}",
                   "provenance": "'"${provenance_base64}"'"
                 }')
           PARSED_UID=$(echo $RESPONSE | jq -r '.uid')
-          echo "uid=$PARSED_UID" >> $GITHUB_OUTPUT
+          echo "uid=$PARSED_UID" >> "$GITHUB_OUTPUT"
 
       - name: Download project artifact
         uses: actions/download-artifact@v4
@@ -147,7 +139,7 @@ jobs:
           name: project
           path: "./project"
   
-      - name: upload project data
+      - name: Upload project data
         run: |
           tar -C ./project -cf - . | gzip > ${{ steps.upload-data.outputs.uid }}
           response=$(curl --silent -X POST https://upload-jx4b2hndxq-uc.a.run.app \
@@ -161,7 +153,7 @@ jobs:
       - name: Visit this URL to sign transaction
         run: |
           API_URL="https://slsa.zktx.io?q=${{ steps.upload-data.outputs.uid }}"
-          echo "API_URL=$API_URL" >> $GITHUB_OUTPUT
+          echo "API_URL=$API_URL" >> "$GITHUB_OUTPUT"
           echo "::notice title=API URL::[Click here to sign transaction]($API_URL)"
 
       - name: Fetch signatures
@@ -180,8 +172,8 @@ jobs:
               sleep $SLEEP
               RETRY_COUNT=$((RETRY_COUNT+1))
             else
-              signedData=$(echo $RESPONSE | jq -r '.signedData' || echo "pending")
-              if [[ "$signedData" != "pending" && "$signedData" != "null" ]]; then
+              signedData=$(echo $RESPONSE | jq -r '.signedData' || echo "null")
+              if [[ "$signedData" != "null" ]]; then
                 STATUS="complete"
               else
                 echo "Waiting... (Retry count: $RETRY_COUNT / $MAX_RETRIES)"
