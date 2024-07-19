@@ -4,106 +4,194 @@ branding:
   color: blue
   icon: package
 
-runs-on: ubuntu-latest
-inputs:
-  move-compiler:
-    description:
-      'Select a CLI to compile the Move language. Examples include tools such as `aptos` and `sui`.'
-    required: true
-    type: string
-  move-directory:
-    description:
-      'The root directory of the Move project refers to the directory containing the Move.toml file.'
-    required: true
-    type: string
-outputs:
-  package-name:
-    description: "The name of the package."
-    value: ${{ steps.compile.outputs.package-name }}
-  package-framework:
-    description: "The name of the network where the package is deployed."
-    value: ${{ steps.compile.outputs.package-framework }}
-  base64-subjects:
-    value: ${{ steps.hash.outputs.base64-subjects }}
+on:
+  workflow_dispatch:
+    inputs:
+      move-compiler:
+        description:
+          'Select a CLI to compile the Move language. Examples include tools such as `aptos` and `sui`.'
+        required: true
+        type: string
+      move-directory:
+        description:
+          'The root directory of the Move project refers to the directory containing the Move.toml file.'
+        required: true
+        type: string
 
-runs:
-  using: "composite"
-  steps:
-    - uses: actions/checkout@v3
+permissions:
+  actions: read
+  id-token: write
+  contents: write
+  
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      package-name: ${{ steps.compile.outputs.package-name }}
+      package-framework: ${{ steps.compile.outputs.package-framework }}
+      base64-subjects: ${{ steps.compile.outputs.base64-subjects }}
+    steps:
+      - uses: actions/checkout@v3
 
-    - name: Set up Homebrew
-      uses: Homebrew/actions/setup-homebrew@master
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@master
 
-    - name: Install Move Compiler
-      shell: bash
-      run: |
-        if [ "${{ inputs.move-compiler }}" = "aptos" ]; then
-          echo "Installing Aptos compiler..."
-          brew install aptos
-        elif [ "${{ inputs.move-compiler }}" = "sui" ]; then
-          echo "Installing Sui compiler..."
-          brew install sui
-        else
-          echo "Unknown compiler: ${{ inputs.move-compiler }}"
-          exit 1
-        fi
+      - name: "Install Move Compiler"
+        shell: bash
+        run: |
+          if [ "${{ inputs.move-compiler }}" = "aptos" ]; then
+              echo "Installing Aptos compiler..."
+              brew install aptos
+          elif [ "${{ inputs.move-compiler }}" = "sui" ]; then
+              echo "Installing Sui compiler..."
+              brew install sui
+          else
+              echo "Unknown compiler: ${{ inputs.move-compiler }}"
+              exit 1
+          fi
 
-    - name: Compile Move
-      id: compile
-      shell: bash
-      run: |
-        set -euo pipefail
-        if [ -z "${GITHUB_WORKSPACE}" ]; then
-          echo "\$GITHUB_WORKSPACE is empty."
-          exit 1
-        fi
-        move_realpath=$(realpath -e "${{ inputs.move-directory }}")
-        echo "Directory '${{ inputs.move-directory }}' resolved to '${move_realpath}'"
-        github_workspace_realpath=$(realpath -e "${GITHUB_WORKSPACE}")
-        echo "GitHub workspace '${GITHUB_WORKSPACE}' resolved to '${github_workspace_realpath}'"
-        echo "Checking directory '${move_realpath}' is a sub-directory of '${github_workspace_realpath}'"
-        if [[ "${move_realpath}" != "${github_workspace_realpath}" ]] && [[ "${move_realpath}" != "${github_workspace_realpath}"/* ]]; then
-          echo "${{ inputs.move-directory }} not a sub-directory of ${GITHUB_WORKSPACE}"
-          exit 1
-        fi
-        # Directory was validated. Explicitly trust it.
-        directory="${{ inputs.move-directory }}"
-        cd "${directory}"
-        toml_file="Move.toml"
-        package_name=$(grep -oP '(?<=name = ").*(?=")' "${toml_file}")
-        package_framework=$(grep -oP '(?<=rev = ").*?(?=")' "${toml_file}")
-        if [ "${{ inputs.move-compiler }}" = "aptos" ]; then
-          echo "Compiling Aptos compiler..."
-          aptos move compile
-        elif [ "${{ inputs.move-compiler }}" = "sui" ]; then
-          echo "Compiling Sui compiler..."
-          sui move build
-        else
-          echo "Unknown compiler: ${{ inputs.move-compiler }}"
-          exit 1
-        fi
-        {
-          echo "package-name=${package_name}"
-          echo "package-framework=${{ inputs.move-compiler }}:${package_framework}"
-        } >>"${GITHUB_OUTPUT}"
+      - name: Compile Move
+        id: compile
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${GITHUB_WORKSPACE}" ]; then
+              echo "\$GITHUB_WORKSPACE is empty."
+              exit 1
+          fi
+          move_realpath=$(realpath -e "${{ inputs.move-directory }}")
+          echo "Directory '${{ inputs.move-directory }}' resolved to '${move_realpath}'"
+          github_workspace_realpath=$(realpath -e "${GITHUB_WORKSPACE}")
+          echo "GitHub workspace '${GITHUB_WORKSPACE}' resolved to '${github_workspace_realpath}'"
+          echo "Checking directory '${move_realpath}' is a sub-directory of '${github_workspace_realpath}'"
+          if [[ "${move_realpath}" != "${github_workspace_realpath}" ]] && [[ "${move_realpath}" != "${github_workspace_realpath}"/* ]]; then
+              echo "${{ inputs.move-directory }} not a sub-directory of ${GITHUB_WORKSPACE}"
+              exit 1
+          fi
+          # Directory was validated. Explicitly trust it.
+          directory="${{ inputs.move-directory }}"
+          cd "${directory}"
+          toml_file="Move.toml"
+          package_name=$(grep -oP '(?<=name = ").*(?=")' "${toml_file}")
+          package_framework=$(grep -oP '(?<=rev = ").*?(?=")' "${toml_file}")
+          if [ "${{ inputs.move-compiler }}" = "aptos" ]; then
+              echo "Compiling Aptos compiler..."
+              aptos move compile
+          elif [ "${{ inputs.move-compiler }}" = "sui" ]; then
+              echo "Compiling Sui compiler..."
+              sui move build
+          else
+              echo "Unknown compiler: ${{ inputs.move-compiler }}"
+              exit 1
+          fi
+          {
+              echo "package-name=${package_name}"
+              echo "package-framework=${{ inputs.move-compiler }}:${package_framework}"
+          } >>"${GITHUB_OUTPUT}"
+    
+      - name: Upload project artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: project
+          path: ${{ inputs.move-directory }}
+          if-no-files-found: error
 
-    - name: Upload project artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: project
-        path: ${{ inputs.move-directory }}
-        if-no-files-found: error
+      - name: Generate hashes for provenance
+        id: hash
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET_DIRECTORY="${{ inputs.move-directory }}/build/${{ steps.compile.outputs.package-name }}/bytecode_modules"
+          HASH_FILE="provenance"
+          find "$TARGET_DIRECTORY" -maxdepth 1 -type f -name "*.mv" -print0 | sort -z | while IFS= read -r -d '' FILE; do
+              sha256sum "$FILE" | awk '{print $1}' >> "$HASH_FILE"
+          done
+          {
+              echo "base64-subjects=$(sha256sum $HASH_FILE | base64 -w0)"
+          } >> "$GITHUB_OUTPUT"
 
-    - name: Generate hashes for provenance
-      id: hash
-      shell: bash
-      run: |
-        set -euo pipefail
-        TARGET_DIRECTORY="${{ inputs.move-directory }}/build/${{ steps.compile.outputs.package-name }}/bytecode_modules"
-        HASH_FILE="provenance"
-        find "$TARGET_DIRECTORY" -maxdepth 1 -type f -name "*.mv" -print0 | sort -z | while IFS= read -r -d '' FILE; do
-          sha256sum "$FILE" | awk '{print $1}' >> "$HASH_FILE"
-        done
-        {
-          echo "base64-subjects=$(sha256sum $HASH_FILE | base64 -w0)"
-        } >> "$GITHUB_OUTPUT"
+  provenance:
+    needs: [build]
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
+    with:
+      base64-subjects: ${{ needs.build.outputs.base64-subjects }}
+      upload-assets: true
+
+  deploy:
+    needs: [build, provenance]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: "provenance.intoto.jsonl"
+          path: "."
+
+      - name: Upload provenance data
+        id: upload-data
+        run: |
+          provenance_base64=$(base64 -w 0 provenance.intoto.jsonl)
+          RESPONSE=$(curl --silent -X POST "https://create-jx4b2hndxq-uc.a.run.app" \
+            -H "Content-Type: application/json" \
+            -d '{
+                  "name": "${{ needs.build.outputs.package-name }}",
+                  "network":"${{ needs.build.outputs.package-framework }}",
+                  "provenance": "'"${provenance_base64}"'"
+                }')
+          PARSED_UID=$(echo $RESPONSE | jq -r '.uid')
+          echo "uid=$PARSED_UID" >> $GITHUB_OUTPUT
+
+      - name: Download project artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: project
+          path: "./project"
+  
+      - name: upload project data
+        run: |
+          tar -C ./project -cf - . | gzip > ${{ steps.upload-data.outputs.uid }}
+          response=$(curl --silent -X POST https://upload-jx4b2hndxq-uc.a.run.app \
+            -H "Content-Type: multipart/form-data" \
+            -F "file=@${{ steps.upload-data.outputs.uid }};filename=${{ steps.upload-data.outputs.uid }};type=application/gzip")
+          if [[ "$response" != "File uploaded successfully." ]]; then
+            echo "Error uploading the file"
+            exit 1
+          fi
+
+      - name: Visit this URL to sign transaction
+        run: |
+          API_URL="https://slsa.zktx.io?q=${{ steps.upload-data.outputs.uid }}"
+          echo "API_URL=$API_URL" >> $GITHUB_OUTPUT
+          echo "::notice title=API URL::[Click here to sign transaction]($API_URL)"
+
+      - name: Fetch signatures
+        id: fetch
+        run: |
+          MAX_RETRIES=20
+          RETRY_COUNT=0
+          SLEEP=30
+          STATUS="pending"
+          while [[ "$STATUS" != "complete" && $RETRY_COUNT -lt $MAX_RETRIES ]]; do
+            RESPONSE=$(curl --silent -X POST "https://fetch-jx4b2hndxq-uc.a.run.app" \
+              -H "Content-Type: application/json" \
+              -d '{"uid":"${{ steps.upload-data.outputs.uid }}"}')
+            if [[ "$RESPONSE" == "Document not found" ]]; then
+              echo "Waiting... (Retry count: $RETRY_COUNT / $MAX_RETRIES)"
+              sleep $SLEEP
+              RETRY_COUNT=$((RETRY_COUNT+1))
+            else
+              signedData=$(echo $RESPONSE | jq -r '.signedData' || echo "pending")
+              if [[ "$signedData" != "pending" && "$signedData" != "null" ]]; then
+                STATUS="complete"
+              else
+                echo "Waiting... (Retry count: $RETRY_COUNT / $MAX_RETRIES)"
+                sleep $SLEEP
+                RETRY_COUNT=$((RETRY_COUNT+1))
+              fi
+            fi
+          done
+          if [[ "$STATUS" != "complete" ]]; then
+            echo "Status did not become complete within the expected time."
+            exit 1
+          fi
+          echo "status=complete" >> $GITHUB_ENV
