@@ -1,23 +1,29 @@
 import * as core from '@actions/core'
 import { deploy as sui } from './deploy/sui'
+import { fromB64 } from '@mysten/sui/utils'
 
 const main = async (): Promise<void> => {
   try {
     const framwork = core.getInput('package-framework', {
       required: true
     })
-    const subjects = core.getInput('base64-subjects', { required: true })
+    const hashes = core.getInput('package-hashes', { required: true })
     const message = core.getInput('message', { required: true })
     const signature = core.getInput('signature', { required: true })
     const network = framwork.split(':')
-    if (subjects && framwork && message && signature) {
+    if (hashes && framwork && message && signature) {
       switch (network[0]) {
         case 'aptos':
           break
         case 'sui':
           core.setOutput(
             'tx-receipt',
-            await sui(network[1], subjects, message, signature)
+            await sui(
+              network[1],
+              new TextDecoder().decode(fromB64(hashes)),
+              message,
+              signature
+            )
           )
           return
         default:

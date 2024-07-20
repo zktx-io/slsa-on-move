@@ -26617,7 +26617,7 @@ const client_1 = __nccwpck_require__(6123);
 const transactions_1 = __nccwpck_require__(9899);
 const utils_1 = __nccwpck_require__(7220);
 const sha_js_1 = __importDefault(__nccwpck_require__(5975));
-async function deploy(network, subjects, message, signature) {
+async function deploy(network, modules, message, signature) {
     const tx = transactions_1.Transaction.from(message);
     const data = tx.getData();
     if (data.commands.length !== 2) {
@@ -26634,7 +26634,7 @@ async function deploy(network, subjects, message, signature) {
     if (data.commands[1].$kind !== 'TransferObjects') {
         throw new Error('transaction command error (2)');
     }
-    const lines = subjects.split('\n');
+    const lines = modules.split('\n');
     const hashes = command.modules.map(item => (0, sha_js_1.default)('sha256').update((0, utils_1.fromB64)(item)).digest('hex'));
     if (hashes.length !== lines.length) {
         throw new Error('transaction module error (3)');
@@ -26696,21 +26696,22 @@ var __importStar = (this && this.__importStar) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(2186));
 const sui_1 = __nccwpck_require__(8402);
+const utils_1 = __nccwpck_require__(7220);
 const main = async () => {
     try {
         const framwork = core.getInput('package-framework', {
             required: true
         });
-        const subjects = core.getInput('base64-subjects', { required: true });
+        const hashes = core.getInput('package-hashes', { required: true });
         const message = core.getInput('message', { required: true });
         const signature = core.getInput('signature', { required: true });
         const network = framwork.split(':');
-        if (subjects && framwork && message && signature) {
+        if (hashes && framwork && message && signature) {
             switch (network[0]) {
                 case 'aptos':
                     break;
                 case 'sui':
-                    core.setOutput('tx-receipt', await (0, sui_1.deploy)(network[1], subjects, message, signature));
+                    core.setOutput('tx-receipt', await (0, sui_1.deploy)(network[1], new TextDecoder().decode((0, utils_1.fromB64)(hashes)), message, signature));
                     return;
                 default:
                     break;

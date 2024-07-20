@@ -5,7 +5,7 @@ import hash from 'sha.js'
 
 export async function deploy(
   network: string,
-  subjects: string,
+  modules: string,
   message: string,
   signature: string
 ): Promise<string> {
@@ -33,7 +33,7 @@ export async function deploy(
     throw new Error('transaction command error (2)')
   }
 
-  const lines = subjects.split('\n')
+  const lines = modules.split('\n')
   const hashes = command.modules.map(item =>
     hash('sha256').update(fromB64(item)).digest('hex')
   )
