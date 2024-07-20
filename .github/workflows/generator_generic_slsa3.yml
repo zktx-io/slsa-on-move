@@ -28,6 +28,7 @@ jobs:
       package-name: ${{ steps.compile.outputs.package-name }}
       package-framework: ${{ steps.compile.outputs.package-framework }}
       base64-subjects: ${{ steps.hash.outputs.base64-subjects }}
+      package-hashes: ${{ steps.hash.outputs.package-hashes }}
     steps:
       - uses: actions/checkout@v4
 
@@ -99,6 +100,7 @@ jobs:
             sha256sum "$FILE" | awk '{print $1}' >> "$HASH_FILE"
           done
           {
+            echo "package-hashes=$(base64 -w0 $HASH_FILE)"
             echo "base64-subjects=$(sha256sum $HASH_FILE | base64 -w0)"
           } >> "$GITHUB_OUTPUT"
 
@@ -209,6 +211,6 @@ jobs:
         uses: 'zktx-io/slsa-on-move@main'
         with:
           package-framework: ${{ needs.build.outputs.package-framework }}
-          base64-subjects: ${{ needs.build.outputs.base64-subjects }}
+          package-hashes: ${{ needs.build.outputs.package-hashes }}
           message: ${{ needs.connect.outputs.message }}
           signature: ${{ needs.connect.outputs.signature }}
