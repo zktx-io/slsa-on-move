@@ -33,7 +33,10 @@ export async function deploy(
     throw new Error('transaction command error (2)')
   }
 
-  const lines = modules.split('\n').sort()
+  const lines = modules
+    .split('\n')
+    .filter(item => !!item)
+    .sort()
   const hashes = command.modules
     .map(item => hash('sha256').update(fromB64(item)).digest('hex'))
     .sort()
