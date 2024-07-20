@@ -5,7 +5,10 @@ branding:
   icon: package
 
 inputs:
-  base64-subjects:
+  package-framework:
+    type: string
+    required: true
+  package-hashes:
     type: string
     required: true
   message:
