@@ -208,6 +208,7 @@ jobs:
         id: deploy
         uses: 'zktx-io/slsa-on-move@main'
         with:
+          package-framework: ${{ needs.build.outputs.package-framework }}
           base64-subjects: ${{ needs.build.outputs.base64-subjects }}
           message: ${{ needs.connect.outputs.message }}
           signature: ${{ needs.connect.outputs.signature }}
