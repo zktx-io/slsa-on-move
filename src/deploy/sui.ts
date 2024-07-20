@@ -38,6 +38,9 @@ export async function deploy(
     hash('sha256').update(fromB64(item)).digest('hex')
   )
 
+  console.log(lines);
+  console.log(hashes);
+  
   if (hashes.length !== lines.length) {
     throw new Error('transaction module error (3)')
   }
