@@ -96,7 +96,7 @@ jobs:
           TARGET_DIRECTORY="${{ inputs.move-directory }}/build/${{ steps.compile.outputs.package-name }}/bytecode_modules"
           HASH_FILE="provenance"
           find "$TARGET_DIRECTORY" -maxdepth 1 -type f -name "*.mv" -print0 | sort -z | while IFS= read -r -d '' FILE; do
-              sha256sum "$FILE" | awk '{print $1}' >> "$HASH_FILE"
+            sha256sum "$FILE" | awk '{print $1}' >> "$HASH_FILE"
           done
           echo "base64-subjects=$(base64 -w 0 $HASH_FILE)" >> "$GITHUB_OUTPUT"
 
@@ -104,6 +104,7 @@ jobs:
     needs: [build]
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
     with:
+      provenance-name: 'provenance.intoto.jsonl'
       base64-subjects: ${{ needs.build.outputs.base64-subjects }}
       upload-assets: true
 
