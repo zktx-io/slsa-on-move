@@ -43,11 +43,15 @@ export async function deploy(
   }
 
   let isSame = true
-  hashes.forEach((hex, i) => (isSame = isSame && hex === lines[i]))
+  for (const [i, hex] of hashes.entries()) {
+    isSame = isSame && hex === lines[i]
+  }
 
   if (isSame) {
     const client = new SuiClient({
-      url: getFullnodeUrl(network.split('/')[1] as any)
+      url: getFullnodeUrl(
+        network.split('/')[1] as 'devnet' | 'mainnet' | 'testnet'
+      )
     })
     const result = await client.executeTransactionBlock({
       transactionBlock: message,
