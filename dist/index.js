@@ -26719,6 +26719,7 @@ const main = async () => {
         throw new Error(`${network[0]} is not supported.`);
     }
     catch (error) {
+        console.log(error);
         throw new Error(`${error}`);
     }
 };
