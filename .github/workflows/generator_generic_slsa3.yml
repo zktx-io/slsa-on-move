@@ -107,9 +107,12 @@ jobs:
       base64-subjects: ${{ needs.build.outputs.base64-subjects }}
       upload-assets: true
 
-  deploy:
+  connect:
     runs-on: ubuntu-latest
     needs: [build, provenance]
+    outputs:
+      message: ${{ steps.fetch.outputs.message }}
+      signature: ${{ steps.fetch.outputs.signature }}
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
@@ -184,4 +187,25 @@ jobs:
             echo "Status did not become complete within the expected time."
             exit 1
           fi
-          echo "status=complete" >> $GITHUB_ENV
+          signature=$(echo $signedData | jq -r '.signature')
+          message=$(echo $signedData | jq -r '.message')
+          {
+              echo "signature=$signature"
+              echo "message=$message"
+          } >> "${GITHUB_OUTPUT}"
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [build, provenance, connect]
+    permissions:
+      actions: read
+      contents: write
+      id-token: write
+    steps:
+      - name: Deploy Smart Contract
+        id: deploy
+        uses: 'zktx-io/slsa-on-move@main'
+        with:
+          base64-subjects: ${{ needs.build.outputs.base64-subjects }}
+          message: ${{ needs.connect.outputs.message }}
+          signature: ${{ needs.connect.outputs.signature }}
