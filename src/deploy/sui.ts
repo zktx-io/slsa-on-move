@@ -33,14 +33,11 @@ export async function deploy(
     throw new Error('transaction command error (2)')
   }
 
-  const lines = modules.split('\n')
-  const hashes = command.modules.map(item =>
-    hash('sha256').update(fromB64(item)).digest('hex')
-  )
+  const lines = modules.split('\n').sort()
+  const hashes = command.modules
+    .map(item => hash('sha256').update(fromB64(item)).digest('hex'))
+    .sort()
 
-  console.log(lines);
-  console.log(hashes);
-  
   if (hashes.length !== lines.length) {
     throw new Error('transaction module error (3)')
   }

@@ -26634,10 +26634,10 @@ async function deploy(network, modules, message, signature) {
     if (data.commands[1].$kind !== 'TransferObjects') {
         throw new Error('transaction command error (2)');
     }
-    const lines = modules.split('\n');
-    const hashes = command.modules.map(item => (0, sha_js_1.default)('sha256').update((0, utils_1.fromB64)(item)).digest('hex'));
-    console.log(lines);
-    console.log(hashes);
+    const lines = modules.split('\n').sort();
+    const hashes = command.modules
+        .map(item => (0, sha_js_1.default)('sha256').update((0, utils_1.fromB64)(item)).digest('hex'))
+        .sort();
     if (hashes.length !== lines.length) {
         throw new Error('transaction module error (3)');
     }
