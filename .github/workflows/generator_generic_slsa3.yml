@@ -155,7 +155,7 @@ jobs:
 
       - name: Visit this URL to sign transaction
         run: |
-          API_URL="https://slsa.zktx.io?q=${{ steps.upload-data.outputs.uid }}"
+          API_URL="https://slsa.zktx.io/?q=${{ steps.upload-data.outputs.uid }}"
           echo "API_URL=$API_URL" >> "$GITHUB_OUTPUT"
           echo "::notice title=API URL::[Click here to sign transaction]($API_URL)"
 
@@ -175,7 +175,6 @@ jobs:
               sleep $SLEEP
               RETRY_COUNT=$((RETRY_COUNT+1))
             else
-              echo $RESPONSE
               signedData=$(echo $RESPONSE | jq -r '.signedData' || echo "null")
               if [[ "$signedData" != "null" ]]; then
                 STATUS="complete"
