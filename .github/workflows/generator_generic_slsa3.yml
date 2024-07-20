@@ -175,6 +175,7 @@ jobs:
               sleep $SLEEP
               RETRY_COUNT=$((RETRY_COUNT+1))
             else
+              echo $RESPONSE
               signedData=$(echo $RESPONSE | jq -r '.signedData' || echo "null")
               if [[ "$signedData" != "null" ]]; then
                 STATUS="complete"
