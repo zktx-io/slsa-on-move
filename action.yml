@@ -8,26 +8,28 @@ runs-on: ubuntu-latest
 inputs:
   move-compiler:
     description:
-      'Select a CLI to compile the Move language. Examples include tools such as `aptos` and `sui`.'
+      'Select a CLI to compile the Move language. Examples include tools such as
+      `aptos` and `sui`.'
     required: true
     type: string
   move-directory:
     description:
-      'The root directory of the Move project refers to the directory containing the Move.toml file.'
+      'The root directory of the Move project refers to the directory containing
+      the Move.toml file.'
     required: true
     type: string
 outputs:
   package-name:
-    description: "The name of the package."
+    description: 'The name of the package.'
     value: ${{ steps.compile.outputs.package-name }}
   package-framework:
-    description: "The name of the network where the package is deployed."
+    description: 'The name of the network where the package is deployed.'
     value: ${{ steps.compile.outputs.package-framework }}
   base64-subjects:
     value: ${{ steps.hash.outputs.base64-subjects }}
 
 runs:
-  using: "composite"
+  using: 'composite'
   steps:
     - uses: actions/checkout@v3
 

@@ -5,12 +5,14 @@ on:
     inputs:
       move-compiler:
         description:
-          'Select a CLI to compile the Move language. Examples include tools such as `aptos` and `sui`.'
+          'Select a CLI to compile the Move language. Examples include tools
+          such as `aptos` and `sui`.'
         required: true
         type: string
       move-directory:
         description:
-          'The root directory of the Move project refers to the directory containing the Move.toml file.'
+          'The root directory of the Move project refers to the directory
+          containing the Move.toml file.'
         required: true
         type: string
 
@@ -32,7 +34,7 @@ jobs:
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@master
 
-      - name: "Install Move Compiler"
+      - name: 'Install Move Compiler'
         shell: bash
         run: |
           if [ "${{ inputs.move-compiler }}" = "aptos" ]; then
@@ -112,8 +114,8 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: "provenance.intoto.jsonl"
-          path: "."
+          name: 'provenance.intoto.jsonl'
+          path: '.'
 
       - name: Upload provenance data
         id: upload-data
@@ -133,8 +135,8 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: project
-          path: "./project"
-  
+          path: './project'
+
       - name: Upload project data
         run: |
           tar -C ./project -cf - . | gzip > ${{ steps.upload-data.outputs.uid }}

@@ -1,7 +1,7 @@
 {
   "name": "slsa-on-move",
   "version": "0.0.3",
-  "description": "GitHub Actions SLSA On Move",
+  "description": "SLSA is a framework designed to improve the security of the software supply chain. Spice up your blockchain with SLSA!",
   "exports": {
     ".": "./dist/index.js"
   },
@@ -52,6 +52,7 @@
     ]
   },
   "dependencies": {
+    "@actions/core": "^1.10.1",
     "@mysten/sui": "^1.3.0"
   },
   "devDependencies": {
