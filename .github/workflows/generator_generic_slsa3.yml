@@ -101,9 +101,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          mv bytecode.dump.json provenance
           {
-            echo "base64-bytecode=$(base64 -w0 bytecode.dump.json)"
-            echo "base64-subjects=$(sha256sum bytecode.dump.json | base64 -w0)"
+            echo "base64-bytecode=$(base64 -w0 provenance)"
+            echo "base64-subjects=$(sha256sum provenance | base64 -w0)"
           } >> "$GITHUB_OUTPUT"
 
   provenance:
