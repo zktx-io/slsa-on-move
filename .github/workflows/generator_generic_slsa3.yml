@@ -118,6 +118,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build, provenance]
     outputs:
+      move-toml: ${{ steps.read-move.outputs.toml }}
       message: ${{ steps.fetch.outputs.message }}
       signature: ${{ steps.fetch.outputs.signature }}
     steps:
@@ -126,6 +127,21 @@ jobs:
         with:
           name: 'provenance.intoto.jsonl'
           path: '.'
+
+      - name: Download dumb artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: bytecode.dump.json
+
+      - name: Download toml artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Move.toml
+
+      - id: read-move
+        run: |
+          file_content=$(cat Move.toml)
+          echo "toml=$file_content" >> $GITHUB_OUTPUT
 
       - name: Upload provenance data
         id: upload-data
@@ -140,16 +156,6 @@ jobs:
                 }')
           PARSED_UID=$(echo $RESPONSE | jq -r '.uid')
           echo "uid=$PARSED_UID" >> "$GITHUB_OUTPUT"
-
-      - name: Download dumb artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: bytecode.dump.json
-
-      - name: Download toml artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: Move.toml
 
       - name: Upload project data
         run: |
@@ -217,6 +223,7 @@ jobs:
         with:
           package-framework: ${{ needs.build.outputs.package-framework }}
           base64-bytecode: ${{ needs.build.outputs.base64-bytecode }}
+          move-toml: ${{ needs.connect-wallet.outputs.move-toml }}
           message: ${{ needs.connect-wallet.outputs.message }}
           signature: ${{ needs.connect-wallet.outputs.signature }}
 

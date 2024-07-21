@@ -8,7 +8,10 @@ inputs:
   package-framework:
     type: string
     required: true
-  package-hashes:
+  base64-bytecode:
+    type: string
+    required: true
+  move-toml:
     type: string
     required: true
   message:

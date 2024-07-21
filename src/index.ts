@@ -8,6 +8,7 @@ const main = async (): Promise<void> => {
       required: true
     })
     const bytecode = core.getInput('base64-bytecode', { required: true })
+    // const toml = core.getInput('move-toml', { required: true })
     const message = core.getInput('message', { required: true })
     const signature = core.getInput('signature', { required: true })
     const network = framwork.split(':')
