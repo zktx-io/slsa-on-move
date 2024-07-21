@@ -11,7 +11,7 @@ inputs:
   base64-bytecode:
     type: string
     required: true
-  move-toml:
+  base64-toml:
     type: string
     required: true
   message:
