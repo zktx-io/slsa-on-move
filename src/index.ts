@@ -7,11 +7,11 @@ const main = async (): Promise<void> => {
     const framwork = core.getInput('package-framework', {
       required: true
     })
-    const hashes = core.getInput('package-hashes', { required: true })
+    const bytecode = core.getInput('base64-bytecode', { required: true })
     const message = core.getInput('message', { required: true })
     const signature = core.getInput('signature', { required: true })
     const network = framwork.split(':')
-    if (hashes && framwork && message && signature) {
+    if (bytecode && framwork && message && signature) {
       switch (network[0]) {
         case 'aptos':
           break
@@ -20,7 +20,7 @@ const main = async (): Promise<void> => {
             'tx-receipt',
             await sui(
               network[1],
-              new TextDecoder().decode(fromB64(hashes)),
+              new TextDecoder().decode(fromB64(bytecode)),
               message,
               signature
             )

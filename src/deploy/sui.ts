@@ -1,11 +1,9 @@
 import { getFullnodeUrl, SuiClient } from '@mysten/sui/client'
 import { Transaction } from '@mysten/sui/transactions'
-import { fromB64 } from '@mysten/sui/utils'
-import hash from 'sha.js'
 
 export async function deploy(
   network: string,
-  modules: string,
+  bytecode: string,
   message: string,
   signature: string
 ): Promise<string> {
@@ -33,22 +31,33 @@ export async function deploy(
     throw new Error('transaction command error (2)')
   }
 
-  const lines = modules
-    .split('\n')
-    .filter(item => !!item)
-    .sort()
-  const hashes = command.modules
-    .map(item => hash('sha256').update(fromB64(item)).digest('hex'))
-    .sort()
+  const { modules, dependencies } = JSON.parse(bytecode) as {
+    modules: string[]
+    dependencies: string[]
+  }
 
-  if (hashes.length !== lines.length) {
+  if (command.modules.length !== modules.length) {
     throw new Error('transaction module error (3)')
   }
 
-  let isSame = true
-  for (const [i, hex] of hashes.entries()) {
-    isSame = isSame && hex === lines[i]
+  if (command.dependencies.length !== dependencies.length) {
+    throw new Error('transaction module error (4)')
   }
+
+  let isSame = true
+  for (const [i, code] of command.modules.entries()) {
+    isSame = isSame && code === modules[i]
+  }
+  for (const [i, code] of command.dependencies.entries()) {
+    isSame = isSame && code === dependencies[i]
+  }
+
+  console.log(modules)
+  console.log(command.modules)
+  console.log(dependencies)
+  console.log(command.dependencies)
+
+  // TODO: transaction.upgrade
 
   if (isSame) {
     const client = new SuiClient({
@@ -71,5 +80,5 @@ export async function deploy(
     return JSON.stringify(receipt)
   }
 
-  throw new Error('transaction module error (4)')
+  throw new Error('transaction module error (999)')
 }

@@ -95,7 +95,7 @@ jobs:
           name: Move.toml
           path: ${{ inputs.move-compiler }}/Move.toml
           if-no-files-found: error
-  
+
       - name: Generate hashes for provenance
         id: hash
         shell: bash
