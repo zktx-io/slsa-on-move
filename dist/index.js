@@ -25736,6 +25736,7 @@ const main = async () => {
             required: true
         });
         const bytecode = core.getInput('base64-bytecode', { required: true });
+        // const toml = core.getInput('base64-toml', { required: true })
         const message = core.getInput('message', { required: true });
         const signature = core.getInput('signature', { required: true });
         const network = framwork.split(':');
