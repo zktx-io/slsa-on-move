@@ -64,7 +64,7 @@ export async function deploy(
     const receipt = await client.waitForTransaction({
       digest: result.digest,
       options: {
-        showEffects: true
+        showObjectChanges: true
       }
     })
 
