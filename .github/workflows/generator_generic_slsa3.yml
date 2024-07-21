@@ -28,7 +28,7 @@ jobs:
       package-name: ${{ steps.compile.outputs.package-name }}
       package-framework: ${{ steps.compile.outputs.package-framework }}
       base64-subjects: ${{ steps.hash.outputs.base64-subjects }}
-      package-hashes: ${{ steps.hash.outputs.package-hashes }}
+      base64-bytecode: ${{ steps.hash.outputs.base64-bytecode }}
     steps:
       - uses: actions/checkout@v4
 
@@ -69,10 +69,10 @@ jobs:
           package_framework=$(grep -oP '(?<=rev = ").*?(?=")' "${toml_file}")
           if [ "${{ inputs.move-compiler }}" = "aptos" ]; then
               echo "Compiling with Aptos compiler..."
-              aptos move compile
+              aptos move build-publish-payload --json-output-file "${GITHUB_WORKSPACE}/bytecode.dump.json"
           elif [ "${{ inputs.move-compiler }}" = "sui" ]; then
               echo "Compiling with Sui compiler..."
-              sui move build
+              sui move build --dump-bytecode-as-base64 >> "${GITHUB_WORKSPACE}/bytecode.dump.json"
           else
               echo "Unknown compiler: ${{ inputs.move-compiler }}"
               exit 1
@@ -82,26 +82,28 @@ jobs:
               echo "package-framework=${{ inputs.move-compiler }}:${package_framework}"
           } >> "${GITHUB_OUTPUT}"
 
-      - name: Upload project artifacts
+      - name: Upload dump artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: project
-          path: ${{ inputs.move-directory }}
+          name: bytecode.dump.json
+          path: bytecode.dump.json
           if-no-files-found: error
 
+      - name: Upload toml artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Move.toml
+          path: ${{ inputs.move-compiler }}/Move.toml
+          if-no-files-found: error
+  
       - name: Generate hashes for provenance
         id: hash
         shell: bash
         run: |
           set -euo pipefail
-          TARGET_DIRECTORY="${{ inputs.move-directory }}/build/${{ steps.compile.outputs.package-name }}/bytecode_modules"
-          HASH_FILE="provenance"
-          find "$TARGET_DIRECTORY" -maxdepth 1 -type f -name "*.mv" -print0 | sort -z | while IFS= read -r -d '' FILE; do
-            sha256sum "$FILE" | awk '{print $1}' >> "$HASH_FILE"
-          done
           {
-            echo "package-hashes=$(base64 -w0 $HASH_FILE)"
-            echo "base64-subjects=$(sha256sum $HASH_FILE | base64 -w0)"
+            echo "base64-bytecode=$(base64 -w0 bytecode.dump.json)"
+            echo "base64-subjects=$(sha256sum bytecode.dump.json | base64 -w0)"
           } >> "$GITHUB_OUTPUT"
 
   provenance:
@@ -138,15 +140,19 @@ jobs:
           PARSED_UID=$(echo $RESPONSE | jq -r '.uid')
           echo "uid=$PARSED_UID" >> "$GITHUB_OUTPUT"
 
-      - name: Download project artifact
+      - name: Download dumb artifact
         uses: actions/download-artifact@v4
         with:
-          name: project
-          path: './project'
+          name: bytecode.dump.json
+
+      - name: Download toml artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Move.toml
 
       - name: Upload project data
         run: |
-          tar -C ./project -cf - . | gzip > ${{ steps.upload-data.outputs.uid }}
+          tar -czf ${{ steps.upload-data.outputs.uid }} bytecode.dump.json Move.toml
           response=$(curl --silent -X POST https://upload-jx4b2hndxq-uc.a.run.app \
             -H "Content-Type: multipart/form-data" \
             -F "file=@${{ steps.upload-data.outputs.uid }};filename=${{ steps.upload-data.outputs.uid }};type=application/gzip")
@@ -209,7 +215,7 @@ jobs:
         uses: 'zktx-io/slsa-on-move@main'
         with:
           package-framework: ${{ needs.build.outputs.package-framework }}
-          package-hashes: ${{ needs.build.outputs.package-hashes }}
+          base64-bytecode: ${{ needs.build.outputs.base64-bytecode }}
           message: ${{ needs.connect-wallet.outputs.message }}
           signature: ${{ needs.connect-wallet.outputs.signature }}
 
