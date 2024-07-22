@@ -27,7 +27,7 @@ jobs:
     outputs:
       package-name: ${{ steps.compile.outputs.package-name }}
       package-framework: ${{ steps.compile.outputs.package-framework }}
-      base64-toml: ${{ steps.hash.outputs.base64-toml }}
+      base64-toml: ${{ steps.compile.outputs.base64-toml }}
       base64-subjects: ${{ steps.hash.outputs.base64-subjects }}
       base64-bytecode: ${{ steps.hash.outputs.base64-bytecode }}
     steps:
@@ -79,13 +79,13 @@ jobs:
               exit 1
           fi
           base64_toml=""
-          ls -l
           if [ -f "Upgrade.toml" ]; then
+            echo "Upgrade.toml exists, including in tar."
             base64_toml=$(tar -czf - Move.toml Upgrade.toml | base64 -w 0)
           else
+            echo "Upgrade.toml does not exist, only including Move.toml in tar."
             base64_toml=$(tar -czf - Move.toml | base64 -w 0)
           fi
-          echo "$base64_toml"
           {
               echo "package-name=${package_name}"
               echo "package-framework=${{ inputs.move-compiler }}:${package_framework}"
