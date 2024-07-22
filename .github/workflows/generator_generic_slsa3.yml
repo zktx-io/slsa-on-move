@@ -1,4 +1,4 @@
-name: SLSA On Move
+name: SLSA on Move
 
 on:
   workflow_call:
