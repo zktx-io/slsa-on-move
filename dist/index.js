@@ -25643,7 +25643,7 @@ const transactions_1 = __nccwpck_require__(9899);
 async function deploy(network, bytecode, message, signature) {
     const tx = transactions_1.Transaction.from(message);
     const data = tx.getData();
-    if (data.commands.length !== 2) {
+    if (data.commands.length !== 2 && data.commands.length !== 3) {
         throw new Error('transaction decode error');
     }
     if (data.commands[0].$kind !== 'Publish' &&

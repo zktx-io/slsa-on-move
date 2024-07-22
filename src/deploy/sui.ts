@@ -10,7 +10,7 @@ export async function deploy(
   const tx = Transaction.from(message)
   const data = tx.getData()
 
-  if (data.commands.length !== 2) {
+  if (data.commands.length !== 2 && data.commands.length !== 3) {
     throw new Error('transaction decode error')
   }
 
