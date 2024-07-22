@@ -27,6 +27,7 @@ jobs:
     outputs:
       package-name: ${{ steps.compile.outputs.package-name }}
       package-framework: ${{ steps.compile.outputs.package-framework }}
+      base64-toml: ${{ steps.hash.outputs.base64-toml }}
       base64-subjects: ${{ steps.hash.outputs.base64-subjects }}
       base64-bytecode: ${{ steps.hash.outputs.base64-bytecode }}
     steps:
@@ -77,9 +78,16 @@ jobs:
               echo "Unknown compiler: ${{ inputs.move-compiler }}"
               exit 1
           fi
+          base64_toml=""
+          if [ -f "Upgrade.toml" ]; then
+            base64_toml=$(tar -czf - Move.toml Upgrade.toml | base64 -w 0)
+          else
+            base64_toml=$(tar -czf - Move.toml | base64 -w 0)
+          fi
           {
               echo "package-name=${package_name}"
               echo "package-framework=${{ inputs.move-compiler }}:${package_framework}"
+              echo "base64-toml=${base64_toml}"
           } >> "${GITHUB_OUTPUT}"
 
       - name: Upload dump artifacts
@@ -87,13 +95,6 @@ jobs:
         with:
           name: bytecode.dump.json
           path: bytecode.dump.json
-          if-no-files-found: error
-
-      - name: Upload toml artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: Move.toml
-          path: ${{ inputs.move-compiler }}/Move.toml
           if-no-files-found: error
 
       - name: Generate hashes for provenance
@@ -118,7 +119,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build, provenance]
     outputs:
-      base64-toml: ${{ steps.read-move.outputs.base64-toml }}
       message: ${{ steps.fetch.outputs.message }}
       signature: ${{ steps.fetch.outputs.signature }}
     steps:
@@ -132,16 +132,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: bytecode.dump.json
-
-      - name: Download toml artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: Move.toml
-
-      - id: read-move
-        run: |
-          file_content=$(base64 -w 0 Move.toml)
-          echo "base64-toml=$file_content" >> $GITHUB_OUTPUT
 
       - name: Upload provenance data
         id: upload-data
@@ -159,7 +149,12 @@ jobs:
 
       - name: Upload project data
         run: |
-          tar -czf ${{ steps.upload-data.outputs.uid }} bytecode.dump.json Move.toml
+          echo "${{ needs.build.outputs.base64-toml }}" | base64 -d | tar -xz
+          if [ -f Upgrade.toml ]; then
+            tar -czf ${{ steps.upload-data.outputs.uid }} bytecode.dump.json Move.toml Upgrade.toml
+          else
+            tar -czf ${{ steps.upload-data.outputs.uid }} bytecode.dump.json Move.toml
+          fi
           response=$(curl --silent -X POST https://upload-jx4b2hndxq-uc.a.run.app \
             -H "Content-Type: multipart/form-data" \
             -F "file=@${{ steps.upload-data.outputs.uid }};filename=${{ steps.upload-data.outputs.uid }};type=application/gzip")
@@ -223,7 +218,7 @@ jobs:
         with:
           package-framework: ${{ needs.build.outputs.package-framework }}
           base64-bytecode: ${{ needs.build.outputs.base64-bytecode }}
-          base64-toml: ${{ needs.connect-wallet.outputs.base64-toml }}
+          base64-toml: ${{ needs.build.outputs.base64-toml }}
           message: ${{ needs.connect-wallet.outputs.message }}
           signature: ${{ needs.connect-wallet.outputs.signature }}
 
