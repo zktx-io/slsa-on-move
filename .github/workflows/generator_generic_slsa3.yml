@@ -84,6 +84,7 @@ jobs:
           else
             base64_toml=$(tar -czf - Move.toml | base64 -w 0)
           fi
+          echo "${base64-toml}"
           {
               echo "package-name=${package_name}"
               echo "package-framework=${{ inputs.move-compiler }}:${package_framework}"
