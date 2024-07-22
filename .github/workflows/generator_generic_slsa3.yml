@@ -80,10 +80,13 @@ jobs:
           fi
           base64_toml=""
           if [ -f "Upgrade.toml" ]; then
+            echo "Upgrade.toml exists, including in tar."
             base64_toml=$(tar -czf - Move.toml Upgrade.toml | base64 -w 0)
           else
+            echo "Upgrade.toml does not exist, only including Move.toml in tar."
             base64_toml=$(tar -czf - Move.toml | base64 -w 0)
           fi
+          ls -l
           echo "${base64-toml}"
           {
               echo "package-name=${package_name}"
