@@ -78,15 +78,15 @@ jobs:
               echo "Unknown compiler: ${{ inputs.move-compiler }}"
               exit 1
           fi
-          base64_toml=""
           if [ -f "Upgrade.toml" ]; then
             echo "Upgrade.toml exists, including in tar."
-            base64_toml=$(tar -czf - Move.toml Upgrade.toml | base64 -w 0)
+            tar -czf - Move.toml Upgrade.toml | base64 -w 0 > base64_toml.tmp
           else
             echo "Upgrade.toml does not exist, only including Move.toml in tar."
             base64_toml=$(tar -czf - Move.toml | base64 -w 0)
+            tar -czf - Move.toml | base64 -w 0 > base64_toml.tmp
           fi
-          ls -l
+          base64_toml=$(cat base64_toml.tmp)
           echo "${base64-toml}"
           {
               echo "package-name=${package_name}"
