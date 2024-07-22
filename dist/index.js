@@ -25646,23 +25646,31 @@ async function deploy(network, bytecode, message, signature) {
     if (data.commands.length !== 2 && data.commands.length !== 3) {
         throw new Error('transaction decode error');
     }
-    if (data.commands[0].$kind !== 'Publish' &&
-        data.commands[0].$kind !== 'Upgrade') {
-        throw new Error('transaction command error (0)');
-    }
-    const command = data.commands[0][data.commands[0].$kind];
-    if (!command) {
-        throw new Error('transaction command error (1)');
-    }
-    if (data.commands[1].$kind !== 'TransferObjects') {
+    if (data.commands.length === 2 &&
+        (data.commands[0].$kind !== 'Publish' ||
+            !data.commands[0].Publish ||
+            data.commands[1].$kind !== 'TransferObjects')) {
         throw new Error('transaction command error (2)');
+    }
+    if (data.commands.length === 3 &&
+        (data.commands[0].$kind !== 'MoveCall' ||
+            data.commands[1].$kind !== 'Upgrade' ||
+            !data.commands[1].Upgrade ||
+            data.commands[2].$kind !== 'MoveCall')) {
+        throw new Error('transaction command error (3)');
+    }
+    const command = data.commands.length === 2
+        ? data.commands[0].Publish
+        : data.commands[1].Upgrade;
+    if (!command) {
+        throw new Error('transaction module error (4)');
     }
     const { modules, dependencies } = JSON.parse(bytecode);
     if (command.modules.length !== modules.length) {
-        throw new Error('transaction module error (3)');
+        throw new Error('transaction module error (5)');
     }
-    if (command.dependencies.length !== dependencies.length) {
-        throw new Error('transaction module error (4)');
+    if (dependencies.length !== dependencies.length) {
+        throw new Error('transaction module error (6)');
     }
     let isSame = true;
     for (const [i, code] of command.modules.entries()) {
@@ -25671,11 +25679,6 @@ async function deploy(network, bytecode, message, signature) {
     for (const [i, code] of command.dependencies.entries()) {
         isSame = isSame && code === dependencies[i];
     }
-    console.log(modules);
-    console.log(command.modules);
-    console.log(dependencies);
-    console.log(command.dependencies);
-    // TODO: transaction.upgrade
     if (isSame) {
         const client = new client_1.SuiClient({
             url: (0, client_1.getFullnodeUrl)(network.split('/')[1])
