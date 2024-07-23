@@ -1,42 +1,37 @@
 name: SLSA on Move
-
-on:
+'on':
   workflow_call:
     inputs:
       move-compiler:
-        description:
-          'Select a CLI to compile the Move language. Examples include tools
-          such as `aptos` and `sui`.'
+        description: >-
+          Select a CLI to compile the Move language. Examples include tools such
+          as `aptos` and `sui`.
         required: true
         type: string
       move-directory:
-        description:
-          'The root directory of the Move project refers to the directory
-          containing the Move.toml file.'
+        description: >-
+          The root directory of the Move project refers to the directory
+          containing the Move.toml file.
         required: true
         type: string
-
 permissions:
   actions: read
   id-token: write
   contents: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
-      package-name: ${{ steps.compile.outputs.package-name }}
-      package-framework: ${{ steps.compile.outputs.package-framework }}
-      base64-toml: ${{ steps.compile.outputs.base64-toml }}
-      base64-subjects: ${{ steps.hash.outputs.base64-subjects }}
-      base64-bytecode: ${{ steps.hash.outputs.base64-bytecode }}
+      package-name: '${{ steps.compile.outputs.package-name }}'
+      package-framework: '${{ steps.compile.outputs.package-framework }}'
+      base64-toml: '${{ steps.compile.outputs.base64-toml }}'
+      base64-subjects: '${{ steps.hash.outputs.base64-subjects }}'
+      base64-bytecode: '${{ steps.hash.outputs.base64-bytecode }}'
     steps:
       - uses: actions/checkout@v4
-
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@master
-
-      - name: 'Install Move Compiler'
+      - name: Install Move Compiler
         shell: bash
         run: |
           if [ "${{ inputs.move-compiler }}" = "aptos" ]; then
@@ -49,25 +44,39 @@ jobs:
               echo "Unknown compiler: ${{ inputs.move-compiler }}"
               exit 1
           fi
-
       - name: Compile Move
         id: compile
         shell: bash
-        run: |
+        run: >
           set -euo pipefail
+
           move_realpath=$(realpath -e "${{ inputs.move-directory }}")
-          echo "Directory '${{ inputs.move-directory }}' resolved to '${move_realpath}'"
+
+          echo "Directory '${{ inputs.move-directory }}' resolved to
+          '${move_realpath}'"
+
           github_workspace_realpath=$(realpath -e "${GITHUB_WORKSPACE}")
-          echo "GitHub workspace '${GITHUB_WORKSPACE}' resolved to '${github_workspace_realpath}'"
-          echo "Checking directory '${move_realpath}' is a sub-directory of '${github_workspace_realpath}'"
-          if [[ "${move_realpath}" != "${github_workspace_realpath}" ]] && [[ "${move_realpath}" != "${github_workspace_realpath}"/* ]]; then
+
+          echo "GitHub workspace '${GITHUB_WORKSPACE}' resolved to
+          '${github_workspace_realpath}'"
+
+          echo "Checking directory '${move_realpath}' is a sub-directory of
+          '${github_workspace_realpath}'"
+
+          if [[ "${move_realpath}" != "${github_workspace_realpath}" ]] && [[
+          "${move_realpath}" != "${github_workspace_realpath}"/* ]]; then
               echo "${{ inputs.move-directory }} not a sub-directory of ${GITHUB_WORKSPACE}"
               exit 1
           fi
+
           cd "${move_realpath}"
+
           toml_file="Move.toml"
+
           package_name=$(grep -oP '(?<=name = ").*(?=")' "${toml_file}")
+
           package_framework=$(grep -oP '(?<=rev = ").*?(?=")' "${toml_file}")
+
           if [ "${{ inputs.move-compiler }}" = "aptos" ]; then
               echo "Compiling with Aptos compiler..."
               aptos move build-publish-payload --json-output-file "${GITHUB_WORKSPACE}/bytecode.dump.json"
@@ -78,7 +87,9 @@ jobs:
               echo "Unknown compiler: ${{ inputs.move-compiler }}"
               exit 1
           fi
+
           base64_toml=""
+
           if [ -f "Upgrade.toml" ]; then
             echo "Upgrade.toml exists, including in tar."
             base64_toml=$(tar -czf - Move.toml Upgrade.toml | base64 -w 0)
@@ -86,19 +97,18 @@ jobs:
             echo "Upgrade.toml does not exist, only including Move.toml in tar."
             base64_toml=$(tar -czf - Move.toml | base64 -w 0)
           fi
+
           {
               echo "package-name=${package_name}"
               echo "package-framework=${{ inputs.move-compiler }}:${package_framework}"
               echo "base64-toml=${base64_toml}"
           } >> "${GITHUB_OUTPUT}"
-
       - name: Upload dump artifacts
         uses: actions/upload-artifact@v4
         with:
           name: bytecode.dump.json
           path: bytecode.dump.json
           if-no-files-found: error
-
       - name: Generate hashes for provenance
         id: hash
         shell: bash
@@ -109,37 +119,39 @@ jobs:
             echo "base64-bytecode=$(base64 -w0 provenance)"
             echo "base64-subjects=$(sha256sum provenance | base64 -w0)"
           } >> "$GITHUB_OUTPUT"
-
   provenance:
-    needs: [build]
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
+    needs:
+      - build
+    uses: >-
+      slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
     with:
-      base64-subjects: ${{ needs.build.outputs.base64-subjects }}
+      base64-subjects: '${{ needs.build.outputs.base64-subjects }}'
       upload-assets: true
-
   connect-wallet:
     runs-on: ubuntu-latest
-    needs: [build, provenance]
+    needs:
+      - build
+      - provenance
     outputs:
-      message: ${{ steps.fetch.outputs.message }}
-      signature: ${{ steps.fetch.outputs.signature }}
+      message: '${{ steps.fetch.outputs.message }}'
+      signature: '${{ steps.fetch.outputs.signature }}'
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: 'provenance.intoto.jsonl'
-          path: '.'
-
+          name: provenance.intoto.jsonl
+          path: .
       - name: Download dumb artifact
         uses: actions/download-artifact@v4
         with:
           name: bytecode.dump.json
-
       - name: Upload provenance data
         id: upload-data
-        run: |
+        run: >
           provenance_base64=$(base64 -w 0 provenance.intoto.jsonl)
-          RESPONSE=$(curl --silent -X POST "https://create-jx4b2hndxq-uc.a.run.app" \
+
+          RESPONSE=$(curl --silent -X POST
+          "https://create-jx4b2hndxq-uc.a.run.app" \
             -H "Content-Type: application/json" \
             -d '{
                   "name": "${{ needs.build.outputs.package-name }}",
@@ -147,38 +159,47 @@ jobs:
                   "provenance": "'"${provenance_base64}"'"
                 }')
           PARSED_UID=$(echo $RESPONSE | jq -r '.uid')
-          echo "uid=$PARSED_UID" >> "$GITHUB_OUTPUT"
 
+          echo "uid=$PARSED_UID" >> "$GITHUB_OUTPUT"
       - name: Upload project data
-        run: |
+        run: >
           echo "${{ needs.build.outputs.base64-toml }}" | base64 -d | tar -xz
+
           if [ -f Upgrade.toml ]; then
             tar -czf ${{ steps.upload-data.outputs.uid }} bytecode.dump.json Move.toml Upgrade.toml
           else
             tar -czf ${{ steps.upload-data.outputs.uid }} bytecode.dump.json Move.toml
           fi
-          response=$(curl --silent -X POST https://upload-jx4b2hndxq-uc.a.run.app \
+
+          response=$(curl --silent -X POST
+          https://upload-jx4b2hndxq-uc.a.run.app \
             -H "Content-Type: multipart/form-data" \
             -F "file=@${{ steps.upload-data.outputs.uid }};filename=${{ steps.upload-data.outputs.uid }};type=application/gzip")
           if [[ "$response" != "File uploaded successfully." ]]; then
             echo "Error uploading the file"
             exit 1
           fi
-
       - name: Visit this URL to sign transaction
-        run: |
+        run: >
           API_URL="https://slsa.zktx.io/?q=${{ steps.upload-data.outputs.uid }}"
-          echo "API_URL=$API_URL" >> "$GITHUB_OUTPUT"
-          echo "::notice title=API URL::[Click here to sign transaction]($API_URL)"
 
+          echo "API_URL=$API_URL" >> "$GITHUB_OUTPUT"
+
+          echo "::notice title=API URL::[Click here to sign
+          transaction]($API_URL)"
       - name: Fetch signatures
         id: fetch
-        run: |
+        run: >
           MAX_RETRIES=20
+
           RETRY_COUNT=0
+
           SLEEP=30
+
           STATUS="pending"
-          while [[ "$STATUS" != "complete" && $RETRY_COUNT -lt $MAX_RETRIES ]]; do
+
+          while [[ "$STATUS" != "complete" && $RETRY_COUNT -lt $MAX_RETRIES ]];
+          do
             RESPONSE=$(curl --silent -X POST "https://fetch-jx4b2hndxq-uc.a.run.app" \
               -H "Content-Type: application/json" \
               -d '{"uid":"${{ steps.upload-data.outputs.uid }}"}')
@@ -197,45 +218,53 @@ jobs:
               fi
             fi
           done
+
           if [[ "$STATUS" != "complete" ]]; then
             echo "Status did not become complete within the expected time."
             exit 1
           fi
+
           signature=$(echo $signedData | jq -r '.signature')
+
           message=$(echo $signedData | jq -r '.message')
+
           {
               echo "signature=$signature"
               echo "message=$message"
           } >> "${GITHUB_OUTPUT}"
-
   deploy:
     runs-on: ubuntu-latest
-    needs: [build, provenance, connect-wallet]
+    needs:
+      - build
+      - provenance
+      - connect-wallet
     outputs:
-      tx-receipt: ${{ steps.deploy.outputs.tx-receipt }}
+      tx-receipt: '${{ steps.deploy.outputs.tx-receipt }}'
     steps:
       - name: Deploy Smart Contract
         id: deploy
-        uses: 'zktx-io/slsa-on-move@main'
+        uses: zktx-io/slsa-on-move@main
         with:
-          package-framework: ${{ needs.build.outputs.package-framework }}
-          base64-bytecode: ${{ needs.build.outputs.base64-bytecode }}
-          base64-toml: ${{ needs.build.outputs.base64-toml }}
-          message: ${{ needs.connect-wallet.outputs.message }}
-          signature: ${{ needs.connect-wallet.outputs.signature }}
-
+          package-framework: '${{ needs.build.outputs.package-framework }}'
+          base64-bytecode: '${{ needs.build.outputs.base64-bytecode }}'
+          base64-toml: '${{ needs.build.outputs.base64-toml }}'
+          message: '${{ needs.connect-wallet.outputs.message }}'
+          signature: '${{ needs.connect-wallet.outputs.signature }}'
   receipt:
     runs-on: ubuntu-latest
-    needs: [deploy]
+    needs:
+      - deploy
     steps:
       - name: Create Transaction Receipt File
-        run: |
+        run: >
           output_file="tx-receipt.json"
-          echo '${{ needs.deploy.outputs.tx-receipt }}' | jq '.' > "$output_file"
-          cat "$output_file"
 
+          echo '${{ needs.deploy.outputs.tx-receipt }}' | jq '.' >
+          "$output_file"
+
+          cat "$output_file"
       - name: Uplode Transaction Receipt
         uses: softprops/action-gh-release@v2.0.8
-        if: startsWith(github.ref, 'refs/tags/')
+        if: 'startsWith(github.ref, ''refs/tags/'')'
         with:
           files: tx-receipt.json
