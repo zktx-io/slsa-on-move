@@ -57,7 +57,11 @@ jobs:
         id: test-action
         uses: ./
         with:
-          milliseconds: 2000
+          package-framework: ''
+          base64-bytecode: ''
+          base64-toml: ''
+          message: ''
+          signature: ''
 
       - name: Print Output
         id: output
