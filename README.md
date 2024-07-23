@@ -13,11 +13,12 @@ to build the package and generate SLSA provenance. We’ll call this workflow th
 
 <!-- toc -->
 
-- [Benefits of Provenance](#benefits-of-provenance)
-- [Development Status](#development-status)
-- [Limitations](#limitations)
-- [Generating Provenance](#generating-provenance)
-  - [Getting Started](#getting-started)
+- [Move Builds for Generation of SLSA3+ provenance](#move-builds-for-generation-of-slsa3-provenance)
+  - [Benefits of Provenance](#benefits-of-provenance)
+  - [Development Status](#development-status)
+  - [Limitations](#limitations)
+  - [Generating Provenance](#generating-provenance)
+    - [Getting Started](#getting-started)
 
 <!-- tocstop -->
 
@@ -51,7 +52,7 @@ The **Move builder** currently has the following limitations:
 1. The project must be buildable using move builder. If you need options for
    flags, profiles, or something else to define more granular builds, please
    [open an issue](https://github.com/slsa-framework/slsa-github-generator/issues/new).
-2. The **Move builder** is limited to projects that output artifacts in a build
+1. The **Move builder** is limited to projects that output artifacts in a build
    directory, which is the default for the vast majority of projects.
 
 ## Generating Provenance
@@ -64,7 +65,7 @@ package and generate the provenance.
 Let’s say you have the following build setup:
 
 1. You can build your artifacts using **Move builder**.
-2. You release artifacts via GitHub Actions.
+1. You release artifacts via GitHub Actions.
 
 To add provenance to releases, simply use the following workflow in
 .github/workflows in your repository:
@@ -121,12 +122,12 @@ jobs:
   build:
     uses: zktx-io/slsa-on-move/.github/workflows/generator_generic_slsa3.yml@main
     with:
-      move-compiler:
-        'Select a CLI to compile the Move language. Examples include tools such
-        as `aptos` and `sui`.'
-      move-directory:
-        'The root directory of the Move project refers to the directory
-        containing the Move.toml file.'
+      move-compiler: >
+        Select a CLI to compile the Move language. Examples include tools such
+        as `aptos` and `sui`.
+      move-directory: >
+        The root directory of the Move project refers to the directory
+        containing the Move.toml file.
 
   verify:
     needs: [build]
@@ -157,9 +158,10 @@ jobs:
         run: |
           set -euo pipefail
           TARGET_DIRECTORY="project/build/${{ needs.build.outputs.package-name }}/bytecode_modules"
-          find "$TARGET_DIRECTORY" -maxdepth 1 -type f -name "*.mv" -print0 | sort -z | while IFS= read -r -d '' FILE; do
-            sha256sum "$FILE" | awk '{print $1}' >> hashes
-          done
+          find "$TARGET_DIRECTORY" -maxdepth 1 -type f -name "*.mv" -print0 |
+            sort -z | while IFS= read -r -d '' FILE; do
+              sha256sum "$FILE" | awk '{print $1}' >> hashes
+            done
 
       - name: Verify assets without tag (--source-tag "$GITHUB_REF_NAME")
         shell: bash
@@ -167,8 +169,8 @@ jobs:
           set -euo pipefail
           echo "github.com/$GITHUB_REPOSITORY"
           slsa-verifier verify-artifact --provenance-path provenance.intoto.jsonl \
-                                        --source-uri "github.com/$GITHUB_REPOSITORY" \
-                                        hashes
+            --source-uri "github.com/$GITHUB_REPOSITORY" \
+            hashes
 ```
 
 Now, when you invoke this workflow, the **Move builder** will build both your
