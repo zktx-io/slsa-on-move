@@ -168,7 +168,8 @@ jobs:
         run: |
           set -euo pipefail
           echo "github.com/$GITHUB_REPOSITORY"
-          slsa-verifier verify-artifact --provenance-path provenance.intoto.jsonl \
+          slsa-verifier verify-artifact \
+            --provenance-path provenance.intoto.jsonl \
             --source-uri "github.com/$GITHUB_REPOSITORY" \
             hashes
 ```
