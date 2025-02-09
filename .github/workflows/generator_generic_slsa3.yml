@@ -46,7 +46,7 @@ jobs:
               echo "Installing Sui compiler..."
               brew install sui
           else
-              echo "Unknown compiler: \"${{ inputs.move-compiler }}\""
+              echo "Unknown compiler: ${{ inputs.move-compiler }}"
               exit 1
           fi
 
@@ -56,14 +56,12 @@ jobs:
         run: |
           set -euo pipefail
           move_realpath=$(realpath -e "${{ inputs.move-directory }}")
-          echo "Directory \"${{ inputs.move-directory }}\" resolved to \"${move_realpath}\""
+          echo "Directory '${{ inputs.move-directory }}' resolved to '${move_realpath}'"
           github_workspace_realpath=$(realpath -e "${GITHUB_WORKSPACE}")
-          echo "GitHub workspace \"${GITHUB_WORKSPACE}\" resolved to \"${github_workspace_realpath}\""
-          echo "Checking directory \"${move_realpath}\" is a sub-directory of \"${github_workspace_realpath}\""
-          # shellcheck disable=SC2053
-          pattern="${github_workspace_realpath}/*"
-          if [[ "${move_realpath}" != "${github_workspace_realpath}" && "${move_realpath}" != $pattern ]]; then
-              echo "\"${{ inputs.move-directory }}\" is not a sub-directory of \"${GITHUB_WORKSPACE}\""
+          echo "GitHub workspace '${GITHUB_WORKSPACE}' resolved to '${github_workspace_realpath}'"
+          echo "Checking directory '${move_realpath}' is a sub-directory of '${github_workspace_realpath}'"
+          if [[ "${move_realpath}" != "${github_workspace_realpath}" ]] && [[ "${move_realpath}" != "${github_workspace_realpath}"/* ]]; then
+              echo "${{ inputs.move-directory }} not a sub-directory of ${GITHUB_WORKSPACE}"
               exit 1
           fi
           cd "${move_realpath}"
@@ -75,10 +73,9 @@ jobs:
               aptos move build-publish-payload --json-output-file "${GITHUB_WORKSPACE}/bytecode.dump.json"
           elif [ "${{ inputs.move-compiler }}" = "sui" ]; then
               echo "Compiling with Sui compiler..."
-              sui move build --dump-bytecode-as-base64 \
-                --ignore-chain >> "${GITHUB_WORKSPACE}/bytecode.dump.json"
+              sui move build --dump-bytecode-as-base64 --ignore-chain >> "${GITHUB_WORKSPACE}/bytecode.dump.json"
           else
-              echo "Unknown compiler: \"${{ inputs.move-compiler }}\""
+              echo "Unknown compiler: ${{ inputs.move-compiler }}"
               exit 1
           fi
           base64_toml=""
@@ -144,21 +141,21 @@ jobs:
           provenance_base64=$(base64 -w 0 provenance.intoto.jsonl)
           RESPONSE=$(curl --silent -X POST "https://create-jx4b2hndxq-uc.a.run.app" \
             -H "Content-Type: application/json" \
-            -d "{
-                  \"name\": \"${{ needs.build.outputs.package-name }}\",
-                  \"network\": \"${{ needs.build.outputs.package-framework }}\",
-                  \"provenance\": \"${provenance_base64}\"
-                }")
-          PARSED_UID=$(echo "$RESPONSE" | jq -r '.uid')
+            -d '{
+                  "name": "${{ needs.build.outputs.package-name }}",
+                  "network": "${{ needs.build.outputs.package-framework }}",
+                  "provenance": "'"${provenance_base64}"'"
+                }')
+          PARSED_UID=$(echo $RESPONSE | jq -r '.uid')
           echo "uid=$PARSED_UID" >> "$GITHUB_OUTPUT"
 
       - name: Upload project data
         run: |
           echo "${{ needs.build.outputs.base64-toml }}" | base64 -d | tar -xz
           if [ -f Upgrade.toml ]; then
-            tar -czf "${{ steps.upload-data.outputs.uid }}" bytecode.dump.json Move.toml Upgrade.toml
+            tar -czf ${{ steps.upload-data.outputs.uid }} bytecode.dump.json Move.toml Upgrade.toml
           else
-            tar -czf "${{ steps.upload-data.outputs.uid }}" bytecode.dump.json Move.toml
+            tar -czf ${{ steps.upload-data.outputs.uid }} bytecode.dump.json Move.toml
           fi
           response=$(curl --silent -X POST https://upload-jx4b2hndxq-uc.a.run.app \
             -H "Content-Type: multipart/form-data" \
@@ -181,21 +178,21 @@ jobs:
           RETRY_COUNT=0
           SLEEP=30
           STATUS="pending"
-          while [[ "$STATUS" != "complete" && "$RETRY_COUNT" -lt "$MAX_RETRIES" ]]; do
+          while [[ "$STATUS" != "complete" && $RETRY_COUNT -lt $MAX_RETRIES ]]; do
             RESPONSE=$(curl --silent -X POST "https://fetch-jx4b2hndxq-uc.a.run.app" \
               -H "Content-Type: application/json" \
-              -d "{\"uid\":\"${{ steps.upload-data.outputs.uid }}\"}")
+              -d '{"uid":"${{ steps.upload-data.outputs.uid }}"}')
             if [[ "$RESPONSE" == "Document not found" ]]; then
               echo "Waiting... (Retry count: $RETRY_COUNT / $MAX_RETRIES)"
-              sleep "$SLEEP"
+              sleep $SLEEP
               RETRY_COUNT=$((RETRY_COUNT+1))
             else
-              signedData=$(echo "$RESPONSE" | jq -r '.signedData' || echo "null")
+              signedData=$(echo $RESPONSE | jq -r '.signedData' || echo "null")
               if [[ "$signedData" != "null" ]]; then
                 STATUS="complete"
               else
                 echo "Waiting... (Retry count: $RETRY_COUNT / $MAX_RETRIES)"
-                sleep "$SLEEP"
+                sleep $SLEEP
                 RETRY_COUNT=$((RETRY_COUNT+1))
               fi
             fi
@@ -204,8 +201,8 @@ jobs:
             echo "Status did not become complete within the expected time."
             exit 1
           fi
-          signature=$(echo "$signedData" | jq -r '.signature')
-          message=$(echo "$signedData" | jq -r '.message')
+          signature=$(echo $signedData | jq -r '.signature')
+          message=$(echo $signedData | jq -r '.message')
           {
               echo "signature=$signature"
               echo "message=$message"
@@ -234,7 +231,7 @@ jobs:
       - name: Create Transaction Receipt File
         run: |
           output_file="tx-receipt.json"
-          echo "${{ needs.deploy.outputs.tx-receipt }}" | jq '.' > "$output_file"
+          echo '${{ needs.deploy.outputs.tx-receipt }}' | jq '.' > "$output_file"
           cat "$output_file"
 
       - name: Uplode Transaction Receipt
