@@ -73,7 +73,8 @@ jobs:
               aptos move build-publish-payload --json-output-file "${GITHUB_WORKSPACE}/bytecode.dump.json"
           elif [ "${{ inputs.move-compiler }}" = "sui" ]; then
               echo "Compiling with Sui compiler..."
-              sui move build --dump-bytecode-as-base64 --ignore-chain >> "${GITHUB_WORKSPACE}/bytecode.dump.json"
+              sui move build --dump-bytecode-as-base64 \
+                --ignore-chain >> "${GITHUB_WORKSPACE}/bytecode.dump.json"
           else
               echo "Unknown compiler: ${{ inputs.move-compiler }}"
               exit 1
