@@ -60,7 +60,7 @@ jobs:
           github_workspace_realpath=$(realpath -e "${GITHUB_WORKSPACE}")
           echo "GitHub workspace \"${GITHUB_WORKSPACE}\" resolved to \"${github_workspace_realpath}\""
           echo "Checking directory \"${move_realpath}\" is a sub-directory of \"${github_workspace_realpath}\""
-          # 패턴 매칭을 위해 glob 패턴을 변수에 할당 (따옴표 없이 사용)
+          # shellcheck disable=SC2053
           pattern="${github_workspace_realpath}/*"
           if [[ "${move_realpath}" != "${github_workspace_realpath}" && "${move_realpath}" != $pattern ]]; then
               echo "\"${{ inputs.move-directory }}\" is not a sub-directory of \"${GITHUB_WORKSPACE}\""
